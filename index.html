@@ -56,6 +56,15 @@
             outline: none;
         }
 
+        .memory-indicator {
+            font-size: 0.8rem;
+            color: #34c759;
+            height: 20px;
+            text-align: left;
+            padding-left: 10px;
+            visibility: hidden;
+        }
+
         .buttons {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -69,6 +78,16 @@
 
         .trig:hover {
             background-color: #6e6cf0;
+        }
+
+        .mem-btn {
+            background-color: #444;
+            font-size: 0.8rem;
+            height: 40px;
+        }
+
+        .mem-btn:hover {
+            background-color: #555;
         }
 
         button {
@@ -136,40 +155,53 @@
     <h1>Ege Karabek Hesap Makinesi</h1>
     <div class="container">
         <div class="calculator">
+            <div id="memoryLabel" class="memory-indicator">M</div>
             <input type="text" id="display" disabled placeholder="0">
             <div class="buttons">
-                <!-- Satır 1: Fonksiyonlar -->
+                <!-- Hafıza Butonları -->
+                <button class="mem-btn" onclick="memoryClear()">MC</button>
+                <button class="mem-btn" onclick="memoryRecall()">MR</button>
+                <button class="mem-btn" onclick="memoryAdd()">M+</button>
+                <button class="mem-btn" onclick="memorySubtract()">M-</button>
+                <button class="clear" onclick="clearDisplay()">C</button>
+                <!-- Satır 2 -->
                 <button class="trig" onclick="appendToDisplay('sin(')">sin</button>
                 <button class="trig" onclick="appendToDisplay('cos(')">cos</button>
                 <button class="trig" onclick="appendToDisplay('tan(')">tan</button>
-                <button onclick="appendToDisplay('(')">(</button>
-                <button onclick="appendToDisplay(')')">)</button>
+                <button class="trig" onclick="appendToDisplay('log(')">log</button>
+                <button class="trig" onclick="appendToDisplay('√(')">√</button>
 
-                <!-- Satır 2 -->
+                <!-- Satır 3 -->
                 <button onclick="appendToDisplay('7')">7</button>
                 <button onclick="appendToDisplay('8')">8</button>
                 <button onclick="appendToDisplay('9')">9</button>
-                <button class="operator" onclick="appendToDisplay('/')">/</button>
-                <button class="clear" onclick="clearDisplay()">C</button>
+                <button class="trig" onclick="appendToDisplay('²')">x²</button>
+                <button class="trig" onclick="appendToDisplay('³')">x³</button>
 
                 <!-- Satır 3 -->
                 <button onclick="appendToDisplay('4')">4</button>
                 <button onclick="appendToDisplay('5')">5</button>
                 <button onclick="appendToDisplay('6')">6</button>
-                <button class="operator" onclick="appendToDisplay('*')">×</button>
-                <button onclick="deleteLast()">DEL</button>
+                <button onclick="appendToDisplay('(')">(</button>
+                <button onclick="appendToDisplay(')')">)</button>
 
                 <!-- Satır 4 -->
                 <button onclick="appendToDisplay('1')">1</button>
                 <button onclick="appendToDisplay('2')">2</button>
                 <button onclick="appendToDisplay('3')">3</button>
-                <button class="operator" onclick="appendToDisplay('-')">-</button>
-                <button class="operator" onclick="appendToDisplay('+')">+</button>
+                <button class="operator" onclick="appendToDisplay('/')">/</button>
+                <button class="operator" onclick="appendToDisplay('*')">×</button>
 
-                <!-- Satır 5: Alt Kısım -->
+                <!-- Satır 5 -->
                 <button onclick="appendToDisplay('0')">0</button>
                 <button onclick="appendToDisplay('.')">.</button>
-                <button class="equal" onclick="calculate()">=</button>
+                <button class="operator" onclick="appendToDisplay('-')">-</button>
+                <button class="operator" onclick="appendToDisplay('+')">+</button>
+                <button class="trig" onclick="appendToDisplay('%')">%</button>
+
+                <!-- Satır 6 -->
+                <button onclick="deleteLast()" style="grid-column: span 1;">DEL</button>
+                <button class="equal" onclick="calculate()" style="grid-column: span 4;">=</button>
             </div>
         </div>
 
@@ -186,6 +218,52 @@
         const ctx = canvas.getContext('2d');
         const visualizerTitle = document.getElementById('visualizerTitle');
         const visualizerInfo = document.getElementById('visualizerInfo');
+        const memoryLabel = document.getElementById('memoryLabel');
+
+        let memoryValue = 0;
+
+        function memoryClear() {
+            memoryValue = 0;
+            memoryLabel.style.visibility = "hidden";
+        }
+
+        function memoryRecall() {
+            display.value += memoryValue;
+            updateVisualizer();
+        }
+
+        function memoryAdd() {
+            try {
+                const current = eval(processExpression(display.value)) || 0;
+                memoryValue += current;
+                memoryLabel.style.visibility = "visible";
+            } catch (e) {
+                console.error("Hafızaya ekleme hatası");
+            }
+        }
+
+        function memorySubtract() {
+            try {
+                const current = eval(processExpression(display.value)) || 0;
+                memoryValue -= current;
+                memoryLabel.style.visibility = "visible";
+            } catch (e) {
+                console.error("Hafızadan çıkarma hatası");
+            }
+        }
+
+        function processExpression(expr) {
+            let processed = expr;
+            processed = processed.replace(/(sin|cos|tan)\s*\(?(-?\d*\.?\d+)\)?/g, (match, func, angle) => {
+                return `Math.${func}((Math.PI/180)*${angle})`;
+            });
+            processed = processed.replace(/√\(/g, 'Math.sqrt(');
+            processed = processed.replace(/log\(/g, 'Math.log10(');
+            processed = processed.replace(/%/g, '/100');
+            processed = processed.replace(/²/g, '**2');
+            processed = processed.replace(/³/g, '**3');
+            return processed;
+        }
 
         function appendToDisplay(input) {
             display.value += input;
@@ -204,13 +282,7 @@
 
         function calculate() {
             try {
-                let expression = display.value;
-
-                // Sin 90, sin(90), cos 45 vb. tüm yapıları yakala
-                expression = expression.replace(/(sin|cos|tan)\s*\(?(-?\d*\.?\d+)\)?/g, (match, func, angle) => {
-                    return `Math.${func}((Math.PI/180)*${angle})`;
-                });
-
+                const expression = processExpression(display.value);
                 const result = eval(expression);
 
                 // Hassasiyet düzeltmesi (özellikle cos 90 = 0 olması için)
